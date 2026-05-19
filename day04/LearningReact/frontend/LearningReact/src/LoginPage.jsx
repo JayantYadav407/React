@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, UserCircle, Stethoscope } from 'lucide-react';
 
 const LoginPage = ({ onCancel, onSignup, onLoginSuccess }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [role, setRole] = useState('patient'); // NEW: Added role state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,8 +16,13 @@ const LoginPage = ({ onCancel, onSignup, onLoginSuccess }) => {
     setError('');
     setLoading(true);
 
+    // NEW: Dynamic endpoint selection
+    const endpoint = role === 'doctor' 
+      ? 'http://localhost:5000/api/auth/doctor/login' 
+      : 'http://localhost:5000/api/auth/login';
+
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -31,43 +34,28 @@ const LoginPage = ({ onCancel, onSignup, onLoginSuccess }) => {
         throw new Error(data.message || 'Invalid email or password.');
       }
 
-      // 1. Save token securely
+      // Save token securely
       localStorage.setItem('token', data.token);
       
-      // 2. Identify Role and Profile Data (Detecting if Doctor or Patient)
-      const userRole = data.role || 'patient'; 
-      const p = userRole === 'doctor' ? data.doctor : (data.patient || data.user || {});
-      
+      // Identify Profile Data
+      const p = role === 'doctor' ? data.user : (data.patient || data.user || {});
       const realName = p.fullName || p.name || 'User Account';
       const realEmail = p.email || formData.email;
       const realAvatar = p.avatarUrl || p.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150';
 
-      // 3. Save to Local Storage based on Role
-      if (userRole === 'doctor') {
-        localStorage.setItem('doctorInfo', JSON.stringify({ 
-          ...p, // Save all doctor-specific fields (fees, specialization, etc.)
-          name: realName, 
-          email: realEmail,
-          avatar: realAvatar,
-          role: 'doctor'
-        }));
+      // Save to Local Storage based on Role
+      // localStorage.setItem('doctorInfo', JSON.stringify({ ...p, name: realName, email: realEmail, avatar: realAvatar, role: 'doctor' }));
+      if (role === 'doctor') {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('doctorInfo', JSON.stringify(data.user));
       } else {
-        localStorage.setItem('patientInfo', JSON.stringify({ 
-          name: realName, 
-          email: realEmail,
-          avatar: realAvatar,
-          avatarUrl: realAvatar,
-          role: 'patient'
-        }));
+        localStorage.setItem('patientInfo', JSON.stringify({ name: realName, email: realEmail, avatar: realAvatar, role: 'patient' }));
       }
 
-      // 4. Fire local window notifications so UI refreshes immediately
       window.dispatchEvent(new Event("storage"));
-      window.dispatchEvent(new Event("local-storage"));
       
-      // 5. Trigger Success Callback to switch dashboards in App.jsx
       if (onLoginSuccess) {
-        onLoginSuccess(p, userRole);
+        onLoginSuccess(p, role);
       } else {
         onCancel(); 
       }
@@ -81,28 +69,18 @@ const LoginPage = ({ onCancel, onSignup, onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#1d2d35]">
-      
       {/* HEADER */}
       <header className="flex justify-between items-center px-6 py-4 md:px-20 max-w-7xl mx-auto">
         <div className="flex items-center gap-1 cursor-pointer" onClick={onCancel}>
           <span className="text-2xl font-bold tracking-tighter">SetMore</span>
-          <div className="flex flex-col -space-y-1">
-            <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[5px] border-b-[#00b67a]"></div>
-            <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-[#00b67a]"></div>
-          </div>
         </div>
-        <button 
-          onClick={onSignup} 
-          className="border border-gray-300 px-6 py-2 rounded font-medium text-[#1d2d35] hover:bg-gray-50 transition-colors text-sm"
-        >
+        <button onClick={onSignup} className="border border-gray-300 px-6 py-2 rounded font-medium text-[#1d2d35] hover:bg-gray-50 transition-colors text-sm">
           Sign Up
         </button>
       </header>
 
       {/* HERO & LOGIN CARD SECTION */}
       <section className="relative px-6 py-12 md:px-20 md:py-20 max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-12">
-        
-        {/* Left Side Content */}
         <div className="flex-1 space-y-8">
           <h1 className="text-5xl md:text-6xl font-bold leading-tight tracking-tight">
             Welcome back to <br /> your health hub
@@ -122,6 +100,22 @@ const LoginPage = ({ onCancel, onSignup, onLoginSuccess }) => {
         {/* Right Side Card */}
         <div className="w-full lg:w-[480px] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-8 md:p-10 border border-gray-100">
           <h3 className="text-xl font-bold text-[#1d2d35] mb-6">Login into SetMore Portal</h3>
+
+          {/* ROLE TOGGLE UI */}
+          <div className="flex bg-gray-100 p-1 rounded-xl mb-6">
+            <button
+              onClick={() => setRole('patient')}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition ${role === 'patient' ? 'bg-white shadow text-[#00b67a]' : 'text-gray-500'}`}
+            >
+              <UserCircle size={16} /> Patient Login
+            </button>
+            <button
+              onClick={() => setRole('doctor')}
+              className={`flex-1 py-2 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition ${role === 'doctor' ? 'bg-white shadow text-[#00b67a]' : 'text-gray-500'}`}
+            >
+              <Stethoscope size={16} /> Doctor Login
+            </button>
+          </div>
 
           {error && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 text-sm text-red-700 rounded-r-xl">
@@ -159,26 +153,13 @@ const LoginPage = ({ onCancel, onSignup, onLoginSuccess }) => {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-[#00b67a] text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-[#009664] transition-colors shadow-sm disabled:opacity-50 mt-4 flex justify-center items-center gap-2"
+              className="w-full bg-[#00b67a] text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-[#009664] transition-colors shadow-sm disabled:opacity-50 mt-4"
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Logging in...' : `Login as ${role.charAt(0).toUpperCase() + role.slice(1)}`}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have a verified profile yet?
-              <button 
-                onClick={onSignup} 
-                className="ml-1 text-blue-600 hover:underline font-medium focus:outline-none"
-              >
-                Sign Up
-              </button>
-            </p>
-          </div>
         </div>
       </section>
-
     </div>
   );
 };

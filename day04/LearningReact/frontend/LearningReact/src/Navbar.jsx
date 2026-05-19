@@ -5,43 +5,72 @@ import {
   Monitor, School, ChevronDown, Globe, MessageSquare, User, LogOut, Settings
 } from 'lucide-react';
 
-const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToProfile, onNavigateHome }) => {
+const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToProfile, onNavigateHome, role: initialRole, onNavigateToDashboard }) => {
   const [activeMenu, setActiveMenu] = useState(null);
   const [profileDropdown, setProfileDropdown] = useState(false);
-  
-  // Initialize state from cache immediately to guarantee the image shows up on full-page refreshes
+
   const [currentUser, setCurrentUser] = useState(() => {
-    const cachedUser = localStorage.getItem('patientInfo');
-    if (cachedUser) {
+    const doctorCached = localStorage.getItem('doctorInfo');
+    const patientCached = localStorage.getItem('patientInfo');
+
+    if (doctorCached) {
       try {
-        return JSON.parse(cachedUser);
+        return JSON.parse(doctorCached);
       } catch (e) {
-        console.error("Error parsing initial user cache setup:", e);
+        console.error("Error parsing doctor cache:", e);
       }
     }
+
+    if (patientCached) {
+      try {
+        return JSON.parse(patientCached);
+      } catch (e) {
+        console.error("Error parsing patient cache:", e);
+      }
+    }
+
     return initialUser || null;
   });
 
-  // Helper function to dynamically synchronize user states across your app layout
+  const [currentRole, setCurrentRole] = useState(() => {
+    const doctorCached = localStorage.getItem('doctorInfo');
+    const patientCached = localStorage.getItem('patientInfo');
+
+    if (doctorCached) return 'doctor';
+    if (patientCached) return 'patient';
+    return initialRole || null;
+  });
+
   const syncUserSession = () => {
-    const cachedUser = localStorage.getItem('patientInfo');
-    if (cachedUser) {
+    const doctorCached = localStorage.getItem('doctorInfo');
+    const patientCached = localStorage.getItem('patientInfo');
+
+    if (doctorCached) {
       try {
-        setCurrentUser(JSON.parse(cachedUser));
+        setCurrentUser(JSON.parse(doctorCached));
+        setCurrentRole('doctor');
+        return;
       } catch (e) {
-        console.error("Failed parsing session info context.", e);
+        console.error("Failed parsing doctor session info context.", e);
       }
-    } else {
-      setCurrentUser(null);
     }
+
+    if (patientCached) {
+      try {
+        setCurrentUser(JSON.parse(patientCached));
+        setCurrentRole('patient');
+        return;
+      } catch (e) {
+        console.error("Failed parsing patient session info context.", e);
+      }
+    }
+
+    setCurrentUser(null);
+    setCurrentRole(null);
   };
 
-  // Active Listener Effect Hook to capture login and profile update events instantly
   useEffect(() => {
-    // Sync immediately when navbar mounts or when initialUser prop explicitly updates
     syncUserSession();
-
-    // Listen for custom/storage change transmissions emitted by LoginPage and ProfilePage
     window.addEventListener('storage', syncUserSession);
     window.addEventListener('local-storage', syncUserSession);
 
@@ -49,24 +78,43 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
       window.removeEventListener('storage', syncUserSession);
       window.removeEventListener('local-storage', syncUserSession);
     };
-  }, [initialUser]); 
+  }, [initialUser, initialRole]);
 
-  // Fallback helper to extract short initials for avatar placeholder UI
   const getInitials = (name) => {
     if (!name) return 'U';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  // Wrap the existing onLogOut handler to clean local tracking parameters
   const handleInternalLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('doctorInfo');
     localStorage.removeItem('patientInfo');
     setCurrentUser(null);
+    setCurrentRole(null);
     if (onLogOut) onLogOut();
   };
 
-  // 🌟 DEFENSIVE AVATAR CHECK: Extract any variation of the saved image key securely
-  const currentAvatar = currentUser?.avatarUrl || currentUser?.avatar || null;
+  const currentAvatar =
+    currentUser?.profileImage ||
+    currentUser?.avatarUrl ||
+    currentUser?.avatar ||
+    null;
+
+  const displayName =
+    currentUser?.fullName ||
+    currentUser?.name ||
+    'User';
+
+  const displayEmail =
+    currentUser?.email ||
+    '';
+
+  const displaySubtitle =
+    currentRole === 'doctor'
+      ? (currentUser?.specialization || 'Doctor')
+      : (currentRole === 'patient'
+          ? 'Patient'
+          : '');
 
   return (
     <nav 
@@ -79,7 +127,6 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
       <div className="flex items-center justify-between px-6 py-5 md:px-16 lg:px-24 max-w-[1400px] mx-auto">
         
         <div className="flex items-center space-x-12">
-          {/* Logo Click routes home */}
           <div className="flex items-center gap-1 cursor-pointer" onClick={onNavigateHome}>
             <span className="text-[26px] font-bold tracking-tighter text-[#1d2d35]">setmore</span>
             <div className="flex flex-col -space-y-1">
@@ -88,9 +135,7 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
             </div>
           </div>
 
-          {/* Navigation Links */}
           <div className="hidden lg:flex items-center space-x-7 text-[15px] font-medium text-gray-500">
-            {/* LEARN */}
             <div className="relative py-2" onMouseEnter={() => setActiveMenu('learn')}>
               <button className="hover:text-black flex items-center gap-1">Learn <ChevronDown size={14}/></button>
               {activeMenu === 'learn' && (
@@ -122,7 +167,6 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
               )}
             </div>
 
-            {/* INTEGRATIONS */}
             <div className="relative py-2" onMouseEnter={() => setActiveMenu('integrations')}>
               <button className="hover:text-black flex items-center gap-1">Integrations <ChevronDown size={14}/></button>
               {activeMenu === 'integrations' && (
@@ -139,7 +183,6 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
               )}
             </div>
 
-            {/* FEATURES */}
             <div className="relative py-2" onMouseEnter={() => setActiveMenu('features')}>
               <button className="hover:text-black flex items-center gap-1">Features <ChevronDown size={14}/></button>
               {activeMenu === 'features' && (
@@ -156,7 +199,6 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
               )}
             </div>
 
-            {/* PRICING */}
             <div className="relative py-2" onMouseEnter={() => setActiveMenu('pricing')}>
               <button className="hover:text-black flex items-center gap-1">Pricing <ChevronDown size={14}/></button>
               {activeMenu === 'pricing' && (
@@ -177,16 +219,13 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
           </div>
         </div>
 
-        {/* Action Blocks Container */}
         <div className="flex items-center space-x-6">
           {currentUser ? (
-            /* DYNAMIC AUTHENTICATED PROFILE BLOCK UI */
             <div className="relative">
               <button 
                 onClick={() => setProfileDropdown(!profileDropdown)}
                 className="flex items-center gap-2 focus:outline-none group py-1"
               >
-                {/* 🌟 THE REAL TIME FIX: Check against currentAvatar variable directly */}
                 {currentAvatar ? (
                   <img 
                     src={currentAvatar} 
@@ -195,39 +234,38 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
                   />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-[#00b67a] text-white flex items-center justify-center text-sm font-bold shadow-sm group-hover:bg-[#009664] transition-colors">
-                    {getInitials(currentUser.name)}
+                    {getInitials(displayName)}
                   </div>
                 )}
                 
                 <span className="text-sm font-semibold text-[#1d2d35] hidden sm:block max-w-[120px] truncate">
-                  {currentUser.name?.split(' ')[0] || 'Patient'}
+                  {displayName.split(' ')[0] || 'User'}
                 </span>
                 <ChevronDown size={14} className={`text-gray-400 transition-transform ${profileDropdown ? 'rotate-180' : ''}`} />
               </button>
 
-              {/* Profile Context Dropdown Portal Menu */}
               {profileDropdown && (
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 text-left z-50">
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Signed in as</p>
-                    <p className="text-sm font-bold text-[#1d2d35] truncate">{currentUser.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
+                    <p className="text-sm font-bold text-[#1d2d35] truncate">{displayName}</p>
+                    <p className="text-xs text-gray-400 truncate">{displayEmail}</p>
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase mt-1">{displaySubtitle}</p>
                   </div>
 
                   <button 
                     onClick={() => {
                       setProfileDropdown(false);
-                      onNavigateToProfile();
+                      if (currentRole === 'doctor' && onNavigateToDashboard) onNavigateToDashboard();
+                      else onNavigateToProfile();
                     }}
                     className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors font-medium"
                   >
                     <User size={16} className="text-gray-400" />
-                    <span>My Profile Page</span>
+                    <span>{currentRole === 'doctor' ? 'Doctor Dashboard' : 'My Profile Page'}</span>
                   </button>
 
-                  <button 
-                    className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors font-medium"
-                  >
+                  <button className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors font-medium">
                     <Settings size={16} className="text-gray-400" />
                     <span>Account Settings</span>
                   </button>
@@ -248,7 +286,6 @@ const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToPro
               )}
             </div>
           ) : (
-            /* ANONYMOUS GUEST STATE ACTIONS */
             <>
               <button onClick={onLogin} className="text-[15px] font-medium text-gray-500 hover:text-black">Login</button>
               <button onClick={onStart} className="bg-[#1d2d35] text-white px-6 py-[10px] rounded-[4px] text-[15px] font-bold hover:bg-[#253943] transition-all">

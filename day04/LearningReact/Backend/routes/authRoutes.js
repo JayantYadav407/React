@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { signupPatient, loginPatient } = require('../controllers/authController');
-const { registerDoctor } = require('../controllers/doctorController'); // 👈 Import new controller
 
-// Patient Endpoints
+const { signupPatient, loginPatient } = require('../controllers/authController');
+const { registerDoctor, loginDoctor } = require('../controllers/doctorController');
+
 router.post('/signup', signupPatient);
 router.post('/login', loginPatient);
 
-// Doctor Endpoint
-router.post('/doctor/register', registerDoctor); // 👈 Added this
+router.post('/doctor/register', registerDoctor);
+router.post('/doctor/login', loginDoctor);
 
 module.exports = router;

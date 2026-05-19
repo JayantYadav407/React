@@ -16,13 +16,13 @@ import DoctorSignup from './DoctorSignup.jsx';
 export default function App() {
   const [view, setView] = useState('landing');
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // Track if 'doctor' or 'patient'
+  const [role, setRole] = useState(null);
 
-  // Persistent Login Check
+  // Persistent Login Check on load
   useEffect(() => {
+    const token = localStorage.getItem('token');
     const doctorData = localStorage.getItem('doctorInfo');
     const patientData = localStorage.getItem('patientInfo');
-    const token = localStorage.getItem('token');
 
     if (token) {
       if (doctorData) {
@@ -35,6 +35,7 @@ export default function App() {
     }
   }, []);
 
+  // Sync scroll on view change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [view]);
@@ -43,81 +44,24 @@ export default function App() {
   const showSignup = () => setView('signup');
   const showLogin = () => setView('login');
   const showHome = () => setView('landing');
-  const openDoctorSignup = () => setView('doctorSignup'); // Updated handler
+  const showDashboard = () => setView('dashboard'); // New handler for doctor dashboard
+  const openDoctorSignup = () => setView('doctorSignup');
 
+  // Unified Success Handler
   const handleAuthSuccess = (userData, userRole) => {
     setUser(userData);
-    setRole(userRole || 'patient');
-    setView('landing'); 
+    setRole(userRole);
+    // If a doctor logs in, send them to the dashboard, otherwise home
+    setView(userRole === 'doctor' ? 'dashboard' : 'landing'); 
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('patientInfo');
-    localStorage.removeItem('doctorInfo');
+    localStorage.clear();
     setUser(null);
     setRole(null);
     setView('landing');
   };
 
-  // 🌟 VIEW: Signup
-  if (view === 'signup') {
-    return (
-      <Router>
-        <SignupPage 
-          onLogin={showLogin} 
-          onCancel={showHome} 
-          onDoctorSignup={openDoctorSignup} // FIX: Passing function, not Component
-          onSignupSuccess={handleAuthSuccess}
-        />
-      </Router>
-    );
-  }
-
-  // 🌟 VIEW: Doctor Signup
-  if (view === 'doctorSignup') {
-    return (
-      <Router>
-        <DoctorSignup 
-          onCancel={showSignup} 
-          onSignupSuccess={(data) => handleAuthSuccess(data, 'doctor')} 
-        />
-      </Router>
-    );
-  }
-  
-  // 🌟 VIEW: Login
-  if (view === 'login') {
-    return (
-      <Router>
-        <LoginPage 
-          onCancel={showHome} 
-          onSignup={showSignup}
-          onLoginSuccess={handleAuthSuccess} 
-        />
-      </Router>
-    );
-  }
-
-  // 🌟 VIEW: Profile
-  if (view === 'profile') {
-    return (
-      <Router>
-        <Navbar 
-          user={user} 
-          onLogin={showLogin} 
-          onStart={showSignup} 
-          onLogOut={handleLogout}
-          onNavigateToProfile={() => setView('profile')}
-          onNavigateHome={showHome}
-        />
-        <ProfilePage user={user} role={role} />
-        <Footer />
-      </Router>
-    );
-  }
-
-  // 🌟 VIEW: Landing / Main Dashboards
   return (
     <Router>
       <Navbar 
@@ -127,12 +71,45 @@ export default function App() {
         onLogOut={handleLogout} 
         onNavigateToProfile={() => setView('profile')} 
         onNavigateHome={showHome}
+        onNavigateToDashboard={showDashboard} // Ensure Navbar supports this if needed
       />
-      
-      {/* If logged in as doctor, show Doctor Dashboard. Otherwise show Landing page */}
-      {role === 'doctor' ? (
-        <DoctorApp doctorData={user} />
-      ) : (
+
+      {/* VIEW CONTROLLER */}
+      {view === 'signup' && (
+        <SignupPage 
+          onLogin={showLogin} 
+          onCancel={showHome} 
+          onDoctorSignup={openDoctorSignup} 
+          onSignupSuccess={handleAuthSuccess}
+        />
+      )}
+
+      {view === 'doctorSignup' && (
+        <DoctorSignup 
+          onCancel={showSignup} 
+          onSignupSuccess={(data) => handleAuthSuccess(data, 'doctor')} 
+        />
+      )}
+
+      {view === 'login' && (
+        <LoginPage 
+          onCancel={showHome} 
+          onSignup={showSignup}
+          onLoginSuccess={handleAuthSuccess} 
+        />
+      )}
+
+      {view === 'profile' && user && (
+        <ProfilePage user={user} role={role} />
+      )}
+
+      {/* Doctor Dashboard View */}
+      {view === 'dashboard' && role === 'doctor' && (
+        <DoctorApp doctorData={user} onLogout={handleLogout} />
+      )}
+
+      {/* Marketing Landing View */}
+      {view === 'landing' && (
         <>
           <Hero />
           <SetmoreHealth onSignup={user ? showHome : showSignup}/>

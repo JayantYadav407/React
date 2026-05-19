@@ -1,20 +1,40 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
+require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
-require('dotenv').config(); 
+// ... rest of your code
 
 const connectDB = require('./config/db.js');
 const authRoutes = require('./routes/authRoutes'); 
 const userRoutes = require('./routes/userRoutes'); 
+const Doctor = require('./models/Doctor.js'); // your mongoose model
 
-// 1. Initialize App & Database
 const app = express();
 connectDB();
 
+
+
+
+
+app.get('/:id', async (req, res) => {
+  try {
+    const doc = await Doctor.findById(req.params.id).lean();
+    if (!doc) return res.status(404).json({ message: 'Doctor not found' });
+    return res.json(doc);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// 1. Initialize App & Database
+
 // 2. Initialize Gemini AI
 // Ensure GEMINI_API_KEY is defined in your .env file
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+// Correct way: Explicitly providing the key
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY 
+});
 
 // 3. Configure File Uploads (Multer)
 const upload = multer({ 
