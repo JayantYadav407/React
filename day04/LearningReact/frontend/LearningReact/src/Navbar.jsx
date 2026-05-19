@@ -1,22 +1,33 @@
 import React, { useState } from 'react';
-// Corrected icon names for Lucide React
 import { 
-  Users, Briefcase, Award, BookOpen, GraduationCap, Newspaper, LifeBuoy,
-  Video, Square, Calendar, CreditCard, 
-  Layout, MousePointerClick, Monitor, School,
-  ChevronDown, Globe, MessageSquare
+  Users, Briefcase, Award, BookOpen, GraduationCap, Newspaper,
+  Video, Square, Calendar, CreditCard, Layout, MousePointerClick, 
+  Monitor, School, ChevronDown, Globe, MessageSquare, User, LogOut, Settings
 } from 'lucide-react';
 
-const Navbar = ({ onLogin, onStart }) => {
+const Navbar = ({ onLogin, onStart, user, onLogOut, onNavigateToProfile, onNavigateHome }) => {
   const [activeMenu, setActiveMenu] = useState(null);
+  const [profileDropdown, setProfileDropdown] = useState(false);
+
+  // Fallback helper to extract short initials for avatar placeholder UI
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-100" onMouseLeave={() => setActiveMenu(null)}>
+    <nav 
+      className="sticky top-0 z-50 w-full bg-white border-b border-gray-100" 
+      onMouseLeave={() => {
+        setActiveMenu(null);
+        setProfileDropdown(false);
+      }}
+    >
       <div className="flex items-center justify-between px-6 py-5 md:px-16 lg:px-24 max-w-[1400px] mx-auto">
         
         <div className="flex items-center space-x-12">
-          {/* Logo */}
-          <div className="flex items-center gap-1 cursor-pointer">
+          {/* Logo Click routes home */}
+          <div className="flex items-center gap-1 cursor-pointer" onClick={onNavigateHome}>
             <span className="text-[26px] font-bold tracking-tighter text-[#1d2d35]">setmore</span>
             <div className="flex flex-col -space-y-1">
               <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[6px] border-b-green-600"></div>
@@ -26,7 +37,6 @@ const Navbar = ({ onLogin, onStart }) => {
 
           {/* Navigation Links */}
           <div className="hidden lg:flex items-center space-x-7 text-[15px] font-medium text-gray-500">
-            
             {/* LEARN */}
             <div className="relative py-2" onMouseEnter={() => setActiveMenu('learn')}>
               <button className="hover:text-black flex items-center gap-1">Learn <ChevronDown size={14}/></button>
@@ -114,12 +124,75 @@ const Navbar = ({ onLogin, onStart }) => {
           </div>
         </div>
 
-        {/* Buttons */}
-        <div className="flex items-center space-x-7">
-          <button onClick={onLogin} className="text-[15px] font-medium text-gray-500 hover:text-black">Login</button>
-          <button onClick={onStart} className="bg-[#1d2d35] text-white px-6 py-[10px] rounded-[4px] text-[15px] font-bold hover:bg-[#253943] transition-all">
-            Start FREE
-          </button>
+        {/* Action Blocks Container */}
+        <div className="flex items-center space-x-6">
+          {user ? (
+            /* DYNAMIC AUTHENTICATED PROFILE BLOCK UI */
+            <div className="relative">
+              <button 
+                onClick={() => setProfileDropdown(!profileDropdown)}
+                className="flex items-center gap-2 focus:outline-none group py-1"
+              >
+                <div className="w-9 h-9 rounded-full bg-[#00b67a] text-white flex items-center justify-center text-sm font-bold shadow-sm group-hover:bg-[#009664] transition-colors">
+                  {getInitials(user.name)}
+                </div>
+                <span className="text-sm font-semibold text-[#1d2d35] hidden sm:block max-w-[120px] truncate">
+                  {user.name?.split(' ')[0]}
+                </span>
+                <ChevronDown size={14} className={`text-gray-400 transition-transform ${profileDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Profile Context Dropdown Portal Menu */}
+              {profileDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 text-left z-50">
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Signed in as</p>
+                    <p className="text-sm font-bold text-[#1d2d35] truncate">{user.name}</p>
+                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setProfileDropdown(false);
+                      onNavigateToProfile();
+                    }}
+                    className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors font-medium"
+                  >
+                    <User size={16} className="text-gray-400" />
+                    <span>My Profile Page</span>
+                  </button>
+
+                  <button 
+                    className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5 transition-colors font-medium"
+                  >
+                    <Settings size={16} className="text-gray-400" />
+                    <span>Account Settings</span>
+                  </button>
+
+                  <div className="border-t border-gray-50 my-1"></div>
+
+                  <button 
+                    onClick={() => {
+                      setProfileDropdown(false);
+                      onLogOut();
+                    }}
+                    className="w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors font-semibold"
+                  >
+                    <LogOut size={16} />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ANONYMOUS GUEST STATE ACTIONS */
+            <>
+              <button onClick={onLogin} className="text-[15px] font-medium text-gray-500 hover:text-black">Login</button>
+              <button onClick={onStart} className="bg-[#1d2d35] text-white px-6 py-[10px] rounded-[4px] text-[15px] font-bold hover:bg-[#253943] transition-all">
+                Start FREE
+              </button>
+            </>
+          )}
         </div>
       </div>
     </nav>
