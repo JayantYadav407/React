@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Award, Video, CreditCard, Bell, ChevronRight, Mail, Lock, User, Phone, MapPin, Activity } from 'lucide-react';
 
-const SignupPage = ({ onCancel, onLogin }) => {
+const SignupPage = ({ onCancel, onLogin,onDoctorSignup}) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     phone: '',
-    age: '',
+    dob: '', // Age is computed dynamically from this value
     gender: 'Male',
     bloodGroup: 'O+',
     physicalAddress: '',
@@ -21,22 +21,74 @@ const SignupPage = ({ onCancel, onLogin }) => {
 
   // Reusable input change handler
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ 
+      ...formData, 
+      [name]: name === 'email' ? value.toLowerCase().trim() : value 
+    });
   };
 
-  // Form Submission Handler (Signup Only)
+  // Utility logic to compute exact integer age on-the-fly from DOB
+  const calculateAge = (dobString) => {
+    if (!dobString) return 0;
+    const today = new Date();
+    const birthDate = new Date(dobString);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDifference = today.getMonth() - birthDate.getMonth();
+    
+    // Adjust if the birthday hasn't occurred yet in the current calendar year
+    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Comprehensive Client-side Form Validation
+  const validateForm = () => {
+    if (!formData.name.trim()) return 'Please enter your full name.';
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) return 'Please provide a valid email address.';
+
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) return 'Please provide a valid phone number (minimum 10 digits).';
+
+    if (!formData.dob) return 'Please enter your Date of Birth.';
+    
+    // Check for logical DOB boundaries
+    const computedAge = calculateAge(formData.dob);
+    if (computedAge < 0 || computedAge > 120) return 'Please enter a valid Date of Birth.';
+
+    if (formData.password.length < 6) return 'Password must be at least 6 characters long.';
+    if (!formData.physicalAddress.trim()) return 'Physical address is required.';
+
+    return null;
+  };
+
+  // Form Submission Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setLoading(true);
 
-    // Map comma-separated strings into arrays for MongoDB backend structures
+    // Compute age directly before assigning it to the payload
+    const finalCalculatedAge = calculateAge(formData.dob);
+
     const payload = {
       name: formData.name,
-      email: formData.email,
+      email: formData.email.toLowerCase().trim(),
       password: formData.password,
       phone: formData.phone,
-      age: formData.age,
+      age: finalCalculatedAge, // Backend still gets the calculated integer age structure
+      dob: formData.dob,
       gender: formData.gender,
       bloodGroup: formData.bloodGroup,
       physicalAddress: formData.physicalAddress,
@@ -61,18 +113,20 @@ const SignupPage = ({ onCancel, onLogin }) => {
         throw new Error(data.message || 'Registration processing failed.');
       }
 
-      // Save token validation structures locally
       localStorage.setItem('token', data.token);
-      localStorage.setItem('patientInfo', JSON.stringify({ name: data.name || '', email: data.email }));
+      localStorage.setItem('patientInfo', JSON.stringify({ name: data.name || payload.name, email: payload.email }));
+      
+      // Sync navbar updates cleanly across contexts
+      window.dispatchEvent(new Event('local-storage'));
+      window.dispatchEvent(new Event('storage'));
       
       alert('Registration successful!');
       window.scrollTo(0, 0);
-      
-      // Close modal / Redirect back to active dashboard context
       onCancel();
       
     } catch (err) {
       setError(err.message);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -83,23 +137,39 @@ const SignupPage = ({ onCancel, onLogin }) => {
       
       {/* 1. NAVIGATION HEADER */}
       <header className="flex justify-between items-center px-6 py-4 md:px-20 max-w-7xl mx-auto">
-        <div className="flex items-center gap-1 cursor-pointer" onClick={onCancel}>
-          <span className="text-2xl font-bold tracking-tighter">setmore</span>
-          <div className="flex flex-col -space-y-1">
-            <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[5px] border-b-[#00b67a]"></div>
-            <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-[#00b67a]"></div>
-          </div>
+      <div className="flex items-center gap-1 cursor-pointer" onClick={onCancel}>
+        <span className="text-2xl font-bold tracking-tighter text-[#1d2d35]">heirs</span>
+        <div className="flex flex-col -space-y-1">
+          <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[5px] border-b-[#00b67a]"></div>
+          <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-[#00b67a]"></div>
         </div>
-        <div className="flex items-center gap-8 text-sm text-gray-500">
-          <span className="hidden md:block">+1 (800) 749-4920</span>
+      </div>
+
+      <div className="flex items-center gap-4 md:gap-8">
+        {/* Contact Number - Hidden on small screens to save space */}
+        <span className="hidden lg:block text-sm font-medium text-gray-400">
+          +1 (800) 749-4920
+        </span>
+
+        <div className="flex items-center gap-3">
+          {/* Patient Login - Standard Style */}
           <button 
             onClick={onLogin} 
-            className="border border-gray-300 px-6 py-2 rounded font-medium text-[#1d2d35] hover:bg-gray-50 transition-colors"
+            className="text-sm font-semibold text-[#1d2d35] hover:text-[#00b67a] transition-colors px-2 py-2"
           >
             Login
           </button>
+
+          {/* Doctor Login - Outlined/Action Style */}
+          <button 
+            onClick={onDoctorSignup} // Ensure this handler is passed as a prop
+            className="flex items-center gap-2 border-2 border-[#1d2d35] px-5 py-2 rounded-lg font-bold text-[#1d2d35] hover:bg-[#1d2d35] hover:text-white transition-all text-sm"
+          >
+            <span>For Doctors</span>
+          </button>
         </div>
-      </header>
+      </div>
+    </header>
 
       {/* 2. HERO & AUTH CARD SECTION */}
       <section className="relative px-6 py-12 md:px-20 md:py-20 max-w-7xl mx-auto flex flex-col lg:flex-row items-start gap-12">
@@ -149,31 +219,31 @@ const SignupPage = ({ onCancel, onLogin }) => {
               />
             </div>
 
-            {/* Contact Phone & Age Split Row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative">
-                <Phone className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
-                <input
-                  name="phone"
-                  type="tel"
-                  required
-                  placeholder="Phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00b67a]"
-                />
-              </div>
-              <div>
-                <input
-                  name="age"
-                  type="number"
-                  required
-                  placeholder="Age"
-                  value={formData.age}
-                  onChange={handleChange}
-                  className="w-full px-3 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00b67a]"
-                />
-              </div>
+            {/* Contact Phone Field */}
+            <div className="relative">
+              <Phone className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-400" />
+              <input
+                name="phone"
+                type="tel"
+                required
+                placeholder="Phone (e.g., +91 9876543210)"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00b67a]"
+              />
+            </div>
+
+            {/* Date of Birth Field (Now Span Full Width) */}
+            <div className="relative flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-400 px-1">Date of Birth</label>
+              <input
+                name="dob"
+                type="date"
+                required
+                value={formData.dob}
+                onChange={handleChange}
+                className="w-full px-3 py-3 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-[#00b67a] bg-white"
+              />
             </div>
 
             {/* Gender & Medical Blood Group Selection */}
@@ -285,7 +355,7 @@ const SignupPage = ({ onCancel, onLogin }) => {
                 name="password"
                 type="password"
                 required
-                placeholder="Password"
+                placeholder="Password (Min 6 characters)"
                 value={formData.password}
                 onChange={handleChange}
                 className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00b67a]"

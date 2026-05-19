@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Medical Triage Assistant</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2 { color: #2c3e50; text-align: center; margin-bottom: 25px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #34495e; }
+        textarea { width: 100%; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; resize: vertical; box-sizing: border-box; }
+        .btn { background-color: #3498db; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn:hover { background-color: #2980b9; }
+        .btn-record { background-color: #e74c3c; }
+        .btn-record:hover { background-color: #c0392b; }
+        .recording-status { color: #e74c3c; font-weight: bold; display: none; margin-left: 10px; }
+        .submit-btn { width: 100%; background-color: #2ecc71; padding: 14px; font-size: 16px; font-weight: bold; margin-top: 15px; }
+        .submit-btn:hover { background-color: #27ae60; }
+        #resultBox { margin-top: 25px; padding: 20px; border-left: 5px solid #3498db; background: #eef7fc; border-radius: 4px; display: none; white-space: pre-line; line-height: 1.6; }
+        .audio-preview { margin-top: 10px; display: none; width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>AI Medical Triage Assistant</h2>
+    
+    <form id="symptomForm">
+        <!-- Text input -->
+        <div class="form-group">
+            <label for="textSymptoms">Describe your symptoms in writing:</label>
+            <textarea id="textSymptoms" placeholder="e.g., I have had a dull ache in my lower stomach for two days..."></textarea>
+        </div>
+
+        <!-- Voice input -->
+        <div class="form-group">
+            <label>Or describe them using your voice:</label>
+            <button type="button" id="recordBtn" class="btn btn-record">🔴 Record Voice Note</button>
+            <span id="recordStatus" class="recording-status">Recording...</span>
+            <audio id="audioPreview" class="audio-preview" controls></audio>
+        </div>
+
+        <!-- Image input -->
+        <div class="form-group">
+            <label for="imageInput">Upload an image of the physical symptom (optional):</label>
+            <input type="file" id="imageInput" accept="image/*">
+        </div>
+
+        <button type="submit" class="btn submit-btn">Analyze My Symptoms</button>
+    </form>
+
+    <div id="resultBox"></div>
+</div>
+
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let audioBlob = null;
+
+    const recordBtn = document.getElementById('recordBtn');
+    const recordStatus = document.getElementById('recordStatus');
+    const audioPreview = document.getElementById('audioPreview');
+    const symptomForm = document.getElementById('symptomForm');
+    const resultBox = document.getElementById('resultBox');
+
+    // Voice Recording Logic
+    recordBtn.addEventListener('click', async () => {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+            recordBtn.innerText = "🔴 Record Voice Note";
+            recordStatus.style.display = "none";
+        } else {
+            audioChunks = [];
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    audioPreview.src = audioUrl;
+                    audioPreview.style.display = "block";
+                };
+
+                mediaRecorder.start();
+                recordBtn.innerText = "⏹️ Stop Recording";
+                recordStatus.style.display = "inline";
+            } catch (err) {
+                alert("Microphone access denied or unsupported.");
+                console.error(err);
+            }
+        }
+    });
+
+    // Form Submission Logic
+    symptomForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const textSymptoms = document.getElementById('textSymptoms').value;
+        const imageInput = document.getElementById('imageInput').files[0];
+
+        if (!textSymptoms && !audioBlob && !imageInput) {
+            alert("Please provide at least one symptom type (text, audio, or image).");
+            return;
+        }
+
+        resultBox.style.display = "block";
+        resultBox.innerText = "Analyzing your inputs against medical datasets...";
+        resultBox.style.borderLeftColor = "#3498db";
+
+        const formData = new FormData();
+        if (textSymptoms) formData.append('textSymptoms', textSymptoms);
+        if (imageInput) formData.append('image', imageInput);
+        if (audioBlob) formData.append('audio', audioBlob, 'voice-symptoms.mp3');
+
+        try {
+            const response = await fetch('/api/analyze-symptoms', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                resultBox.innerText = "Error: " + data.error;
+                resultBox.style.borderLeftColor = "#e74c3c";
+            } else {
+                resultBox.innerText = data.analysis;
+                // Highlight emergency styling if triggered
+                if (data.analysis.includes("EMERGENCY")) {
+                    resultBox.style.borderLeftColor = "#e74c3c";
+                    resultBox.style.background = "#fdf2f2";
+                } else {
+                    resultBox.style.borderLeftColor = "#2ecc71";
+                    resultBox.style.background = "#f2fdf6";
+                }
+            }
+        } catch (err) {
+            resultBox.innerText = "An error occurred connecting to the medical API server.";
+            resultBox.style.borderLeftColor = "#e74c3c";
+            console.error(err);
+        }
+    });
+</script>
+
+</body>
+</html>

@@ -2,9 +2,16 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const User = require('../models/Patient.js'); // Adjust this path based on where your User model is located
+const multer = require('multer'); // 🌟 Added for handling the profile avatar file upload
+const User = require('../models/Patient.js'); 
 
-// 🔒 Simple Authentication Middleware to verify incoming JWT Tokens
+// Configure Multer to intercept raw binary media files in memory
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB maximum limit for profile photos
+});
+
+// 🔒 Authentication Middleware to verify incoming JWT Tokens
 const protect = async (req, res, next) => {
   let token;
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -39,32 +46,53 @@ router.get('/profile', protect, async (req, res) => {
 });
 
 // @route   PUT /api/user/profile/update
-// @desc    Update user profile records
-router.put('/profile/update', protect, async (req, res) => {
+// @desc    Update user profile records (Handles multi-part fields + image files)
+router.put('/profile/update', protect, upload.single('avatar'), async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    // Log this in your terminal to see exactly what your frontend is sending!
+    console.log("Incoming Text Data:", req.body);
+    console.log("Incoming File Data:", req.file);
 
+    const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Dynamic field updating assignment safely falling back to current values
+    // Update Core Personal Fields safely
     user.name = req.body.name || user.name;
-    user.email = req.body.email || user.email;
+    user.phone = req.body.phone !== undefined ? req.body.phone : user.phone;
+    user.gender = req.body.gender || user.gender;
+    user.bloodGroup = req.body.bloodGroup || user.bloodGroup;
+    user.physicalAddress = req.body.physicalAddress !== undefined ? req.body.physicalAddress : user.physicalAddress;
     
-    // Add any extra parameters you want editable here (e.g., phone, age)
-    if (req.body.phone) user.phone = req.body.phone;
+    if (req.body.dob) {
+      user.dob = new Date(req.body.dob);
+    }
+
+    // Process Avatar File
+    if (req.file) {
+      const base64Image = req.file.buffer.toString('base64');
+      user.avatarUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+    }
+
+    // Strict string array handling to avoid saving blank elements
+    user.medicalHistory = {
+      chronicIllnesses: req.body.chronicIllnesses ? req.body.chronicIllnesses.split(',').map(s => s.trim()).filter(Boolean) : user.medicalHistory.chronicIllnesses,
+      allergies: req.body.allergies ? req.body.allergies.split(',').map(s => s.trim()).filter(Boolean) : user.medicalHistory.allergies,
+      pastSurgeries: req.body.pastSurgeries ? req.body.pastSurgeries.split(',').map(s => s.trim()).filter(Boolean) : user.medicalHistory.pastSurgeries,
+      currentMedications: req.body.currentMedications ? req.body.currentMedications.split(',').map(s => s.trim()).filter(Boolean) : user.medicalHistory.currentMedications
+    };
+
+    // Explicitly tell Mongoose that these deep nested object arrays have changed
+    user.markModified('medicalHistory');
 
     const updatedUser = await user.save();
     
-    // Return clean object without the sensitive hashed password
-    res.status(200).json({
-      _id: updatedUser._id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      phone: updatedUser.phone
-    });
+    // Return the absolute fresh document from MongoDB back to React
+    res.status(200).json(updatedUser);
+
   } catch (error) {
+    console.error("Profile Update Database Error:", error);
     res.status(500).json({ message: 'Server error saving profile changes', error: error.message });
   }
 });

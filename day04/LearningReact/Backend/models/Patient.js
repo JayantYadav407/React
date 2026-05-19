@@ -64,12 +64,41 @@ const PatientSchema = new mongoose.Schema({
     pastSurgeries: [{ type: String }],
     currentMedications: [{ type: String }]
   },
+  // 🌟 Added Date of Birth
+  dob: { type: Date }, 
+  
+  // 🌟 Added Profile Image field
+  avatarUrl: {
+    type: String,
+    default: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'
+  },
 
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+  medicalHistory: {
+    chronicIllnesses: [{ type: String }],
+    allergies: [{ type: String }],
+    pastSurgeries: [{ type: String }],
+    currentMedications: [{ type: String }]
+  },
+
+  // 🌟 Added Multi-Modal Triage Symptom History
+  symptomHistory: [{
+    timestamp: { type: Date, default: Date.now },
+    userSymptomInput: { type: String },
+    aiAnalysisOutput: { type: String }
+  }],
+
+  // 🌟 Added Appointment Scheduling array (Past, Present, Future)
+  appointments: [{
+    doctorName: { type: String, required: true },
+    department: { type: String, required: true },
+    appointmentDate: { type: Date, required: true },
+    status: { type: String, enum: ['Scheduled', 'Completed', 'Cancelled'], default: 'Scheduled' },
+    notes: { type: String }
+  }]
+}, { timestamps: true });
+
+
+  
 
 // Create a geospatial index for calculating nearest distance
 PatientSchema.index({ location: '2dsphere' });

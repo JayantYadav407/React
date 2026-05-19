@@ -1,19 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, Briefcase, Award, BookOpen, GraduationCap, Newspaper,
   Video, Square, Calendar, CreditCard, Layout, MousePointerClick, 
   Monitor, School, ChevronDown, Globe, MessageSquare, User, LogOut, Settings
 } from 'lucide-react';
 
-const Navbar = ({ onLogin, onStart, user, onLogOut, onNavigateToProfile, onNavigateHome }) => {
+const Navbar = ({ onLogin, onStart, user: initialUser, onLogOut, onNavigateToProfile, onNavigateHome }) => {
   const [activeMenu, setActiveMenu] = useState(null);
   const [profileDropdown, setProfileDropdown] = useState(false);
+  
+  // Initialize state from cache immediately to guarantee the image shows up on full-page refreshes
+  const [currentUser, setCurrentUser] = useState(() => {
+    const cachedUser = localStorage.getItem('patientInfo');
+    if (cachedUser) {
+      try {
+        return JSON.parse(cachedUser);
+      } catch (e) {
+        console.error("Error parsing initial user cache setup:", e);
+      }
+    }
+    return initialUser || null;
+  });
+
+  // Helper function to dynamically synchronize user states across your app layout
+  const syncUserSession = () => {
+    const cachedUser = localStorage.getItem('patientInfo');
+    if (cachedUser) {
+      try {
+        setCurrentUser(JSON.parse(cachedUser));
+      } catch (e) {
+        console.error("Failed parsing session info context.", e);
+      }
+    } else {
+      setCurrentUser(null);
+    }
+  };
+
+  // Active Listener Effect Hook to capture login and profile update events instantly
+  useEffect(() => {
+    // Sync immediately when navbar mounts or when initialUser prop explicitly updates
+    syncUserSession();
+
+    // Listen for custom/storage change transmissions emitted by LoginPage and ProfilePage
+    window.addEventListener('storage', syncUserSession);
+    window.addEventListener('local-storage', syncUserSession);
+
+    return () => {
+      window.removeEventListener('storage', syncUserSession);
+      window.removeEventListener('local-storage', syncUserSession);
+    };
+  }, [initialUser]); 
 
   // Fallback helper to extract short initials for avatar placeholder UI
   const getInitials = (name) => {
     if (!name) return 'U';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
+
+  // Wrap the existing onLogOut handler to clean local tracking parameters
+  const handleInternalLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('patientInfo');
+    setCurrentUser(null);
+    if (onLogOut) onLogOut();
+  };
+
+  // 🌟 DEFENSIVE AVATAR CHECK: Extract any variation of the saved image key securely
+  const currentAvatar = currentUser?.avatarUrl || currentUser?.avatar || null;
 
   return (
     <nav 
@@ -126,18 +179,28 @@ const Navbar = ({ onLogin, onStart, user, onLogOut, onNavigateToProfile, onNavig
 
         {/* Action Blocks Container */}
         <div className="flex items-center space-x-6">
-          {user ? (
+          {currentUser ? (
             /* DYNAMIC AUTHENTICATED PROFILE BLOCK UI */
             <div className="relative">
               <button 
                 onClick={() => setProfileDropdown(!profileDropdown)}
                 className="flex items-center gap-2 focus:outline-none group py-1"
               >
-                <div className="w-9 h-9 rounded-full bg-[#00b67a] text-white flex items-center justify-center text-sm font-bold shadow-sm group-hover:bg-[#009664] transition-colors">
-                  {getInitials(user.name)}
-                </div>
+                {/* 🌟 THE REAL TIME FIX: Check against currentAvatar variable directly */}
+                {currentAvatar ? (
+                  <img 
+                    src={currentAvatar} 
+                    alt="User Profile" 
+                    className="w-9 h-9 rounded-full object-cover shadow-sm ring-2 ring-emerald-50 transition-transform group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-[#00b67a] text-white flex items-center justify-center text-sm font-bold shadow-sm group-hover:bg-[#009664] transition-colors">
+                    {getInitials(currentUser.name)}
+                  </div>
+                )}
+                
                 <span className="text-sm font-semibold text-[#1d2d35] hidden sm:block max-w-[120px] truncate">
-                  {user.name?.split(' ')[0]}
+                  {currentUser.name?.split(' ')[0] || 'Patient'}
                 </span>
                 <ChevronDown size={14} className={`text-gray-400 transition-transform ${profileDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -147,8 +210,8 @@ const Navbar = ({ onLogin, onStart, user, onLogOut, onNavigateToProfile, onNavig
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 text-left z-50">
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Signed in as</p>
-                    <p className="text-sm font-bold text-[#1d2d35] truncate">{user.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                    <p className="text-sm font-bold text-[#1d2d35] truncate">{currentUser.name}</p>
+                    <p className="text-xs text-gray-400 truncate">{currentUser.email}</p>
                   </div>
 
                   <button 
@@ -174,7 +237,7 @@ const Navbar = ({ onLogin, onStart, user, onLogOut, onNavigateToProfile, onNavig
                   <button 
                     onClick={() => {
                       setProfileDropdown(false);
-                      onLogOut();
+                      handleInternalLogout();
                     }}
                     className="w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors font-semibold"
                   >

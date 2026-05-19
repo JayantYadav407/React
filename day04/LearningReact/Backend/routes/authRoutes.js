@@ -1,12 +1,13 @@
 const express = require('express');
-// Explicitly create the router instance
 const router = express.Router();
-
 const { signupPatient, loginPatient } = require('../controllers/authController');
+const { registerDoctor } = require('../controllers/doctorController'); // 👈 Import new controller
 
-// Define your endpoints clearly
+// Patient Endpoints
 router.post('/signup', signupPatient);
 router.post('/login', loginPatient);
 
-// Double-check that you are exporting the router object itself!
+// Doctor Endpoint
+router.post('/doctor/register', registerDoctor); // 👈 Added this
+
 module.exports = router;

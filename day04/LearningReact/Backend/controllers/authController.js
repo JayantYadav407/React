@@ -75,7 +75,9 @@ exports.loginPatient = async (req, res) => {
       patient: { 
         id: patient._id, 
         name: patient.name, 
-        email: patient.email 
+        email: patient.email,
+        avatarUrl:patient.avatarUrl,
+
       }
     });
 

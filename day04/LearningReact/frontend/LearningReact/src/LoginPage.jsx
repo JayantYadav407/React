@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ChevronRight } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 
-const LoginPage = ({ onCancel, onSignup }) => {
+const LoginPage = ({ onCancel, onSignup, onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -19,7 +19,7 @@ const LoginPage = ({ onCancel, onSignup }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -31,11 +31,46 @@ const LoginPage = ({ onCancel, onSignup }) => {
         throw new Error(data.message || 'Invalid email or password.');
       }
 
+      // 1. Save token securely
       localStorage.setItem('token', data.token);
-      localStorage.setItem('patientInfo', JSON.stringify({ name: data.name || '', email: data.email }));
       
-      alert('Login successful!');
-      onCancel(); // Closes auth view or takes user back/forward to dashboard
+      // 2. Identify Role and Profile Data (Detecting if Doctor or Patient)
+      const userRole = data.role || 'patient'; 
+      const p = userRole === 'doctor' ? data.doctor : (data.patient || data.user || {});
+      
+      const realName = p.fullName || p.name || 'User Account';
+      const realEmail = p.email || formData.email;
+      const realAvatar = p.avatarUrl || p.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150';
+
+      // 3. Save to Local Storage based on Role
+      if (userRole === 'doctor') {
+        localStorage.setItem('doctorInfo', JSON.stringify({ 
+          ...p, // Save all doctor-specific fields (fees, specialization, etc.)
+          name: realName, 
+          email: realEmail,
+          avatar: realAvatar,
+          role: 'doctor'
+        }));
+      } else {
+        localStorage.setItem('patientInfo', JSON.stringify({ 
+          name: realName, 
+          email: realEmail,
+          avatar: realAvatar,
+          avatarUrl: realAvatar,
+          role: 'patient'
+        }));
+      }
+
+      // 4. Fire local window notifications so UI refreshes immediately
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("local-storage"));
+      
+      // 5. Trigger Success Callback to switch dashboards in App.jsx
+      if (onLoginSuccess) {
+        onLoginSuccess(p, userRole);
+      } else {
+        onCancel(); 
+      }
       
     } catch (err) {
       setError(err.message);
@@ -50,7 +85,7 @@ const LoginPage = ({ onCancel, onSignup }) => {
       {/* HEADER */}
       <header className="flex justify-between items-center px-6 py-4 md:px-20 max-w-7xl mx-auto">
         <div className="flex items-center gap-1 cursor-pointer" onClick={onCancel}>
-          <span className="text-2xl font-bold tracking-tighter">setmore</span>
+          <span className="text-2xl font-bold tracking-tighter">SetMore</span>
           <div className="flex flex-col -space-y-1">
             <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[5px] border-b-[#00b67a]"></div>
             <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-[#00b67a]"></div>
@@ -86,7 +121,7 @@ const LoginPage = ({ onCancel, onSignup }) => {
 
         {/* Right Side Card */}
         <div className="w-full lg:w-[480px] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] p-8 md:p-10 border border-gray-100">
-          <h3 className="text-xl font-bold text-[#1d2d35] mb-6">Login into Patient Portal</h3>
+          <h3 className="text-xl font-bold text-[#1d2d35] mb-6">Login into SetMore Portal</h3>
 
           {error && (
             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 text-sm text-red-700 rounded-r-xl">
@@ -121,13 +156,13 @@ const LoginPage = ({ onCancel, onSignup }) => {
               />
             </div>
 
-          <button 
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#00b67a] text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-[#009664] transition-colors shadow-sm disabled:opacity-50 mt-4 flex justify-center items-center gap-2"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
+            <button 
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#00b67a] text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-[#009664] transition-colors shadow-sm disabled:opacity-50 mt-4 flex justify-center items-center gap-2"
+            >
+              {loading ? 'Logging in...' : 'Login'}
+            </button>
           </form>
 
           <div className="mt-6 text-center">
@@ -137,7 +172,7 @@ const LoginPage = ({ onCancel, onSignup }) => {
                 onClick={onSignup} 
                 className="ml-1 text-blue-600 hover:underline font-medium focus:outline-none"
               >
-                Sign in
+                Sign Up
               </button>
             </p>
           </div>
