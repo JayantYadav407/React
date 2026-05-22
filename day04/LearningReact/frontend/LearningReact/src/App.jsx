@@ -12,6 +12,8 @@ import SignupPage from './SignupPage.jsx';
 import LoginPage from './LoginPage.jsx';
 import DoctorApp from './DoctorApp.jsx';
 import DoctorSignup from './DoctorSignup.jsx';
+import DoctorSearch from './DoctorSearch.jsx'
+ 
 
 export default function App() {
   const [view, setView] = useState('landing');
@@ -46,6 +48,7 @@ export default function App() {
   const showHome = () => setView('landing');
   const showDashboard = () => setView('dashboard'); // New handler for doctor dashboard
   const openDoctorSignup = () => setView('doctorSignup');
+   const openDoctorSearch = () => setView('doctorSearch');
 
   // Unified Success Handler
   const handleAuthSuccess = (userData, userRole) => {
@@ -116,6 +119,8 @@ export default function App() {
           <PatientInformation />
           <AcceptMedicalFees />
           <FeaturesGrid />
+          <DoctorSearch/>
+         
         </>
       )}
       

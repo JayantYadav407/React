@@ -1,6 +1,6 @@
 import React from 'react';
 
-const SetmoreHealth = ({onSignup}) => {
+const SetmoreHealth = ({Jump}) => {
   return (
     <section className="py-20 px-6 bg-white flex justify-center items-center">
       {/* Container with shadow and rounded corners to match the card style */}
@@ -19,7 +19,7 @@ const SetmoreHealth = ({onSignup}) => {
             comes with additional safeguarding and privacy tools.
           </p>
 
-          <button className="bg-[#243931] text-white px-8 py-4 rounded-md font-bold text-sm hover:bg-[#2c463c] transition-colors duration-200" onClick={onSignup}>
+          <button className="bg-[#243931] text-white px-8 py-4 rounded-md font-bold text-sm hover:bg-[#2c463c] transition-colors duration-200" onClick={Jump}>
             Get started now
           </button>
         </div>

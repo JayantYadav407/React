@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const SignupPage = ({ onCancel }) => {
+const Pricing = ({ onCancel }) => {
   const [userCount, setUserCount] = useState(1);
 
   return (
@@ -135,4 +135,4 @@ const SignupPage = ({ onCancel }) => {
   );
 };
 
-export default SignupPage;
+export default Pricing;
