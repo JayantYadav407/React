@@ -43,9 +43,9 @@ router.get('/search', async (req, res) => {
         { fullName: { $regex: q, $options: 'i' } },
         { specialization: { $regex: q, $options: 'i' } },
         { proficiency: { $regex: q, $options: 'i' } },
-        { skills: { $regex: q, $options: 'i' } },
-        { conditionsTreated: { $regex: q, $options: 'i' } },
-        { services: { $regex: q, $options: 'i' } }
+        { 'skills': { $regex: q, $options: 'i' } },
+        { 'conditionsTreated': { $regex: q, $options: 'i' } },
+        { 'services': { $regex: q, $options: 'i' } }
       ];
     }
 

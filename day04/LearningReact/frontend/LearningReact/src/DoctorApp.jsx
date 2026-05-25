@@ -4,7 +4,6 @@ import {
   Users,
   Briefcase,
   Settings,
-  Plus,
   MapPin,
   Clock,
   AlertCircle,
@@ -17,6 +16,7 @@ import {
   Camera
 } from 'lucide-react';
 import axios from 'axios';
+import SchedulePage from './SchedulePage.jsx';
 
 const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLogout }) => {
   const [activeTab, setActiveTab] = useState('calendar');
@@ -26,6 +26,7 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
   const [showSettings, setShowSettings] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [deletingProfile, setDeletingProfile] = useState(false);
+  const [appointmentsFilter, setAppointmentsFilter] = useState('all');
   const [editForm, setEditForm] = useState({
     profileImageFile: null,
     specialization: '',
@@ -108,8 +109,10 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
         appointmentSummary: appointmentData.summary || {
           total: 0,
           pending: 0,
-          handled: 0,
-          rejected: 0
+          accepted: 0,
+          completed: 0,
+          rejected: 0,
+          cancelled: 0
         }
       };
 
@@ -144,7 +147,7 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
     fees: { regular: 0, emergency: 0 },
     availability: [],
     appointments: [],
-    appointmentSummary: { total: 0, pending: 0, handled: 0, rejected: 0 },
+    appointmentSummary: { total: 0, pending: 0, accepted: 0, completed: 0, rejected: 0, cancelled: 0 },
     ratings: [],
     ratingSummary: { average: 0, count: 0 },
     patientHistory: [],
@@ -322,21 +325,26 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
     }
   };
 
-  const handleAppointmentSaved = async () => {
-    await loadDoctor();
-  };
-
-  const openSettings = () => {
-    setShowSettings(true);
-    setActiveTab('settings');
-  };
-
   const summary = safeDoctor.appointmentSummary || {
     total: 0,
     pending: 0,
-    handled: 0,
-    rejected: 0
+    accepted: 0,
+    completed: 0,
+    rejected: 0,
+    cancelled: 0
   };
+
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(appt => {
+      if (appointmentsFilter === 'all') return true;
+      if (appointmentsFilter === 'pending') return appt.status === 'Pending';
+      if (appointmentsFilter === 'accepted') return appt.status === 'Accepted';
+      if (appointmentsFilter === 'completed') return appt.status === 'Completed';
+      if (appointmentsFilter === 'rejected') return appt.status === 'Rejected';
+      if (appointmentsFilter === 'cancelled') return appt.status === 'Cancelled';
+      return true;
+    });
+  }, [appointments, appointmentsFilter]);
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-800">
@@ -346,7 +354,7 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
             H+
           </div>
           <div>
-            <span className="text-xl font-black tracking-tight text-indigo-900 block leading-none">HEIRS</span>
+            <span className="text-xl font-black tracking-tight text-indigo-900 block leading-none">SetMore</span>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Doctor Portal</span>
           </div>
         </div>
@@ -356,11 +364,11 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
           <SidebarItem icon={<Clock size={20} />} label="Manage Schedule" active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')} />
           <SidebarItem icon={<Users size={20} />} label="Patient History" active={activeTab === 'patients'} onClick={() => setActiveTab('patients')} />
           <SidebarItem icon={<Briefcase size={20} />} label="Public Profile" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} />
-          <SidebarItem icon={<Settings size={20} />} label="Settings" active={activeTab === 'settings'} onClick={openSettings} />
+          <SidebarItem icon={<Settings size={20} />} label="Settings" active={activeTab === 'settings'} onClick={() => { setShowSettings(true); setActiveTab('settings'); }} />
         </nav>
 
         <div className="mt-auto pt-6 border-t border-slate-100">
-          <button onClick={openSettings} className="w-full flex items-center gap-3 p-2 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition">
+          <button onClick={() => { setShowSettings(true); setActiveTab('settings'); }} className="w-full flex items-center gap-3 p-2 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition">
             <div className="w-10 h-10 rounded-full overflow-hidden bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
               {safeDoctor.profileImage ? (
                 <img src={getImageSrc(safeDoctor.profileImage)} alt={safeDoctor.fullName} className="w-full h-full object-cover" />
@@ -390,10 +398,10 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
           <div className="flex items-center gap-4">
             <div className="hidden md:flex items-center gap-2 bg-amber-50 border border-amber-100 px-4 py-2 rounded-xl">
               <AlertCircle size={16} className="text-amber-600" />
-              <span className="text-xs font-bold text-amber-800">{summary.pending} Urgent Request</span>
+              <span className="text-xs font-bold text-amber-800">{summary.pending} Pending Requests</span>
             </div>
 
-            <button onClick={openSettings} className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-4 py-2 rounded-2xl hover:bg-slate-100 transition">
+            <button onClick={() => { setShowSettings(true); setActiveTab('settings'); }} className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-4 py-2 rounded-2xl hover:bg-slate-100 transition">
               <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
                 {safeDoctor.profileImage ? (
                   <img src={getImageSrc(safeDoctor.profileImage)} alt="Doctor avatar" className="w-full h-full object-cover" />
@@ -471,14 +479,13 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
                     <input name="clinicAddress" value={editForm.clinicAddress} onChange={handleEditChange} placeholder="Clinic address" className="border rounded-lg px-4 py-3" />
                     <input name="clinicCity" value={editForm.clinicCity} onChange={handleEditChange} placeholder="Clinic city" className="border rounded-lg px-4 py-3" />
                     <input name="clinicState" value={editForm.clinicState} onChange={handleEditChange} placeholder="Clinic state" className="border rounded-lg px-4 py-3" />
-
                     <input name="hospitalName" value={editForm.hospitalName} onChange={handleEditChange} placeholder="Hospital name" className="border rounded-lg px-4 py-3" />
                     <input name="hospitalAddress" value={editForm.hospitalAddress} onChange={handleEditChange} placeholder="Hospital address" className="border rounded-lg px-4 py-3" />
                     <input name="hospitalCity" value={editForm.hospitalCity} onChange={handleEditChange} placeholder="Hospital city" className="border rounded-lg px-4 py-3" />
 
                     <textarea name="conditionsTreated" value={editForm.conditionsTreated} onChange={handleEditChange} placeholder="Conditions treated, comma separated" className="border rounded-lg px-4 py-3 md:col-span-2" rows="3" />
                     <textarea name="services" value={editForm.services} onChange={handleEditChange} placeholder="Services, comma separated" className="border rounded-lg px-4 py-3 md:col-span-2" rows="3" />
-                    <textarea name="availability" value={editForm.availability} onChange={handleEditChange} placeholder='Availability JSON, example: [{"day":"Monday","slots":[{"startTime":"10:00","endTime":"14:00"}]}]' className="border rounded-lg px-4 py-3 md:col-span-2" rows="4" />
+                    <textarea name="availability" value={editForm.availability} onChange={handleEditChange} placeholder='Availability JSON' className="border rounded-lg px-4 py-3 md:col-span-2" rows="4" />
                     <input name="blackoutDates" value={editForm.blackoutDates} onChange={handleEditChange} placeholder="Blackout dates, comma separated" className="border rounded-lg px-4 py-3 md:col-span-2" />
 
                     <div className="md:col-span-2 flex flex-wrap gap-3">
@@ -501,13 +508,28 @@ const DoctorApp = ({ doctorData = null, apiBase = 'http://localhost:5000', onLog
               <div className="mt-8">
                 {activeTab === 'calendar' && (
                   <CalendarView
-                    appointments={appointments}
-                    onHandle={(id) => updateAppointmentStatus(id, 'Handled')}
+                    appointments={filteredAppointments}
+                    allAppointments={appointments}
+                    filter={appointmentsFilter}
+                    setFilter={setAppointmentsFilter}
+                    summary={summary}
+                    onAccept={(id) => updateAppointmentStatus(id, 'Accepted')}
+                    onComplete={(id) => updateAppointmentStatus(id, 'Completed')}
                     onReject={(id) => updateAppointmentStatus(id, 'Rejected')}
                   />
                 )}
                 {activeTab === 'profile' && <ProfilePanel doctor={safeDoctor} avatarText={avatarText} />}
-                {activeTab === 'schedule' && <SchedulerPanel availability={normalizedAvailability} />}
+                {activeTab === 'schedule' && (
+                  <SchedulePage
+                    apiBase={apiBase}
+                    token={token}
+                    doctor={safeDoctor}
+                    onUpdated={(updatedDoctor) => {
+                      setDoctor(prev => ({ ...prev, ...updatedDoctor }));
+                      loadDoctor();
+                    }}
+                  />
+                )}
                 {activeTab === 'patients' && <PatientLog appointments={appointments} patientHistory={patientHistory} />}
                 {activeTab === 'settings' && !showSettings && <SettingsPanel doctor={safeDoctor} />}
               </div>
@@ -531,87 +553,140 @@ const SidebarItem = ({ icon, label, active, onClick }) => (
   </button>
 );
 
-const DoctorSummaryStrip = ({ doctor, summary, ratings }) => (
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <SummaryCard title="Appointments" value={summary.total} />
+const DoctorSummaryStrip = ({ summary }) => (
+  <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+    <SummaryCard title="Total" value={summary.total} />
     <SummaryCard title="Pending" value={summary.pending} />
-    <SummaryCard title="Handled" value={summary.handled} />
+    <SummaryCard title="Accepted" value={summary.accepted} />
+    <SummaryCard title="Completed" value={summary.completed} />
     <SummaryCard title="Rejected" value={summary.rejected} />
+    <SummaryCard title="Cancelled" value={summary.cancelled} />
   </div>
 );
 
 const SummaryCard = ({ title, value }) => (
-  <div className="bg-white border border-slate-100 rounded-24px p-5 shadow-sm">
-    <p className="text-10px uppercase tracking-widest font-black text-slate-400">{title}</p>
+  <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+    <p className="text-[10px] uppercase tracking-widest font-black text-slate-400">{title}</p>
     <div className="mt-2 text-3xl font-black text-slate-900">{value}</div>
   </div>
 );
 
-const CalendarView = ({ appointments, onHandle, onReject }) => (
-  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-    {appointments.length === 0 ? (
-      <div className="col-span-full p-6 rounded-32px bg-white border border-slate-100 text-slate-400">
-        No appointments found.
-      </div>
-    ) : (
-      appointments.map((apt) => (
-        <div
-          key={apt._id}
-          className={`p-6 rounded-32px border-2 shadow-sm ${
-            apt.status === 'Rejected'
-              ? 'bg-red-50 border-red-100'
-              : apt.status === 'Handled'
-              ? 'bg-emerald-50 border-emerald-100'
-              : 'bg-white border-slate-50'
+const CalendarView = ({ appointments, allAppointments, filter, setFilter, summary, onAccept, onComplete, onReject }) => (
+  <div>
+    <div className="flex gap-2 mb-6 flex-wrap">
+      {[
+        { key: 'all', label: 'All', count: allAppointments.length },
+        { key: 'pending', label: 'Pending', count: summary.pending },
+        { key: 'accepted', label: 'Accepted', count: summary.accepted },
+        { key: 'completed', label: 'Completed', count: summary.completed },
+        { key: 'rejected', label: 'Rejected', count: summary.rejected },
+        { key: 'cancelled', label: 'Cancelled', count: summary.cancelled }
+      ].map(({ key, label, count }) => (
+        <button
+          key={key}
+          onClick={() => setFilter(key)}
+          className={`px-4 py-2 rounded-lg text-xs font-bold capitalize transition-colors ${
+            filter === key
+              ? 'bg-indigo-600 text-white'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
-              <Clock size={16} />
-            </div>
-            <span
-              className={`text-10px font-black uppercase px-2 py-1 rounded-md ${
-                apt.status === 'Rejected'
-                  ? 'bg-red-600 text-white'
-                  : apt.status === 'Handled'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-indigo-100 text-indigo-700'
-              }`}
-            >
-              {apt.status || 'Pending'}
-            </span>
-          </div>
+          {label} ({count})
+        </button>
+      ))}
+    </div>
 
-          <h4 className="font-black text-slate-900 text-lg">{apt.patientName || 'Unknown Patient'}</h4>
-          <p className="text-xs text-slate-500 font-medium mb-4">
-            {apt.preferredTime} — {apt.preferredDate ? new Date(apt.preferredDate).toLocaleDateString() : ''}
-          </p>
-
-          <p className="pt-4 border-t border-slate-100 text-sm text-slate-600">
-            {apt.reason || 'NA'}
-          </p>
-
-          <div className="flex gap-2 flex-wrap mt-4">
-            {apt.status !== 'Handled' && apt.status !== 'Rejected' && (
-              <>
-                <button
-                  onClick={() => onHandle?.(apt._id)}
-                  className="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold"
-                >
-                  Mark Handled
-                </button>
-                <button
-                  onClick={() => onReject?.(apt._id)}
-                  className="bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold"
-                >
-                  Reject
-                </button>
-              </>
-            )}
-          </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      {appointments.length === 0 ? (
+        <div className="col-span-full p-6 rounded-3xl bg-white border border-slate-100 text-slate-400">
+          No appointments found.
         </div>
-      ))
-    )}
+      ) : (
+        appointments.map((apt) => (
+          <div
+            key={apt._id}
+            className={`p-6 rounded-3xl border-2 shadow-sm ${
+              apt.status === 'Rejected'
+                ? 'bg-red-50 border-red-100'
+                : apt.status === 'Completed'
+                ? 'bg-emerald-50 border-emerald-100'
+                : apt.status === 'Cancelled'
+                ? 'bg-orange-50 border-orange-100'
+                : apt.status === 'Accepted'
+                ? 'bg-blue-50 border-blue-100'
+                : 'bg-white border-slate-50'
+            }`}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="p-2 rounded-lg bg-slate-100 text-slate-600">
+                <Clock size={16} />
+              </div>
+              <span
+                className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${
+                  apt.status === 'Rejected'
+                    ? 'bg-red-600 text-white'
+                    : apt.status === 'Completed'
+                    ? 'bg-emerald-600 text-white'
+                    : apt.status === 'Cancelled'
+                    ? 'bg-orange-600 text-white'
+                    : apt.status === 'Accepted'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}
+              >
+                {apt.status || 'Pending'}
+              </span>
+            </div>
+
+            <h4 className="font-black text-slate-900 text-lg">{apt.patientName || 'Unknown Patient'}</h4>
+            <p className="text-xs text-slate-500 font-medium mb-1">
+              {apt.preferredTime} — {apt.preferredDate ? new Date(apt.preferredDate).toLocaleDateString() : ''}
+            </p>
+            <p className="text-xs text-slate-400 font-bold mb-4">
+              {apt.patientPhone || 'N/A'}
+            </p>
+
+            <p className="pt-4 border-t border-slate-100 text-sm text-slate-600 mb-4">
+              {apt.reason || 'No reason provided'}
+            </p>
+
+            <div className="flex gap-2 flex-wrap">
+              {apt.status === 'Pending' && (
+                <>
+                  <button onClick={() => onAccept?.(apt._id)} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors flex-1">
+                    ✓ Accept
+                  </button>
+                  <button onClick={() => onReject?.(apt._id)} className="bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex-1">
+                    ✗ Reject
+                  </button>
+                </>
+              )}
+
+              {apt.status === 'Accepted' && (
+                <>
+                  <button onClick={() => onComplete?.(apt._id)} className="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors flex-1">
+                    ✓ Mark Completed
+                  </button>
+                  <button onClick={() => onReject?.(apt._id)} className="bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex-1">
+                    ✗ Reject
+                  </button>
+                </>
+              )}
+
+              {apt.status === 'Completed' && (
+                <div className="w-full text-center py-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold">✓ Completed</div>
+              )}
+              {apt.status === 'Rejected' && (
+                <div className="w-full text-center py-2 bg-red-100 text-red-700 rounded-lg text-xs font-bold">✗ Rejected</div>
+              )}
+              {apt.status === 'Cancelled' && (
+                <div className="w-full text-center py-2 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold">✗ Cancelled by Patient</div>
+              )}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
   </div>
 );
 
@@ -619,7 +694,7 @@ const ProfilePanel = ({ doctor, avatarText }) => (
   <div className="max-w-5xl space-y-8">
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-6">
-        <div className="bg-white p-8 rounded-32px shadow-sm border border-slate-100">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex gap-8 items-start">
             <div className="w-40 h-40 bg-slate-100 rounded-3xl flex items-center justify-center text-5xl overflow-hidden">
               {doctor.profileImage ? (
@@ -642,7 +717,7 @@ const ProfilePanel = ({ doctor, avatarText }) => (
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-32px shadow-sm border border-slate-100">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
           <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Professional Proficiency</h3>
           <p className="text-lg text-slate-600 leading-relaxed font-medium italic">{doctor.proficiency || ''}</p>
           <p className="mt-4 text-sm text-slate-500 leading-relaxed">{doctor.credentials || ''}</p>
@@ -653,22 +728,22 @@ const ProfilePanel = ({ doctor, avatarText }) => (
       </div>
 
       <div className="space-y-6">
-        <div className="bg-indigo-900 text-white p-8 rounded-32px shadow-2xl shadow-indigo-200">
-          <h3 className="text-10px font-black uppercase tracking-widest opacity-60 mb-6">Fee Structure</h3>
+        <div className="bg-indigo-900 text-white p-8 rounded-3xl shadow-2xl shadow-indigo-200">
+          <h3 className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-6">Fee Structure</h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl">
               <span className="text-sm font-bold">Regular</span>
-              <span className="text-2xl font-black">{doctor.fees?.regular || 0}</span>
+              <span className="text-2xl font-black">₹{doctor.fees?.regular || 0}</span>
             </div>
             <div className="flex justify-between items-center bg-rose-500 p-4 rounded-2xl">
               <span className="text-sm font-bold text-white">Emergency</span>
-              <span className="text-2xl font-black">{doctor.fees?.emergency || 0}</span>
+              <span className="text-2xl font-black">₹{doctor.fees?.emergency || 0}</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-32px shadow-sm border border-slate-100">
-          <h3 className="text-10px font-black text-slate-400 uppercase tracking-widest mb-6">Hospital Location</h3>
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Hospital Location</h3>
           <div className="flex gap-4">
             <div className="bg-slate-50 p-3 rounded-2xl text-indigo-600">
               <MapPin />
@@ -685,38 +760,11 @@ const ProfilePanel = ({ doctor, avatarText }) => (
   </div>
 );
 
-const SchedulerPanel = ({ availability }) => (
-  <div className="bg-white p-10 rounded-32px border border-slate-100 shadow-sm max-w-4xl">
-    <h2 className="text-2xl font-black mb-2">Weekly Schedule Builder</h2>
-    <p className="text-slate-500 text-sm">Open slots here to allow patients to book appointments online.</p>
-    <div className="mt-8 space-y-8">
-      {Object.keys(availability).length === 0 ? (
-        <div className="text-slate-400">No availability set.</div>
-      ) : (
-        Object.entries(availability).map(([day, slots]) => (
-          <div key={day} className="flex items-start gap-8 group">
-            <div className="w-32 py-2">
-              <span className="font-black text-slate-400 group-hover:text-indigo-600 transition-colors">{day}</span>
-            </div>
-            <div className="flex-1 flex flex-wrap gap-3">
-              {slots.map((time) => (
-                <div key={time} className="px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold text-indigo-700 flex items-center gap-2">
-                  {time} <Check size={12} />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-);
-
 const PatientLog = ({ appointments }) => (
   <div className="space-y-8">
-    <div className="bg-white rounded-32px border border-slate-100 overflow-hidden shadow-sm">
+    <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
       <table className="w-full text-left">
-        <thead className="bg-slate-50 text-10px font-black text-slate-400 uppercase tracking-widest border-b">
+        <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b">
           <tr>
             <th className="px-8 py-5">Patient Details</th>
             <th className="px-8 py-5">Visit Type</th>
@@ -737,7 +785,7 @@ const PatientLog = ({ appointments }) => (
                     <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-400">P</div>
                     <div className="flex flex-col">
                       <span className="text-sm font-black text-slate-900">{apt.patientName || 'Unknown Patient'}</span>
-                      <span className="text-10px text-slate-400 font-bold">
+                      <span className="text-[10px] text-slate-400 font-bold">
                         {apt.preferredDate ? new Date(apt.preferredDate).toLocaleDateString() : ''}
                       </span>
                     </div>
@@ -756,7 +804,7 @@ const PatientLog = ({ appointments }) => (
 );
 
 const SettingsPanel = ({ doctor }) => (
-  <div className="bg-white p-8 rounded-32px border border-slate-100 shadow-sm max-w-3xl space-y-6">
+  <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm max-w-3xl space-y-6">
     <h2 className="text-2xl font-black">Settings</h2>
     <div className="space-y-2 text-slate-600">
       <p><span className="font-bold">Email:</span> {doctor.email || 'NA'}</p>
